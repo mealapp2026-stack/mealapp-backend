@@ -22,7 +22,7 @@ func Load() Config {
 
 	return Config{
 		AppEnv:       stringFromEnv("APP_ENV", "development"),
-		HTTPAddr:     stringFromEnv("HTTP_ADDR", ":8085"),
+		HTTPAddr:     httpAddrFromEnv(),
 		MongoURI:     stringFromEnv("MONGO_URI", "mongodb://localhost:27017"),
 		MongoDB:      stringFromEnv("MONGO_DATABASE", "mealapp"),
 		JWTSecret:    stringFromEnv("JWT_SECRET", "dev-secret-change-me"),
@@ -30,6 +30,16 @@ func Load() Config {
 		OpenAIAPIKey: stringFromEnv("OPENAI_API_KEY", ""),
 		OpenAIModel:  stringFromEnv("OPENAI_MODEL", "gpt-5.2"),
 	}
+}
+
+func httpAddrFromEnv() string {
+	if value := os.Getenv("HTTP_ADDR"); value != "" {
+		return value
+	}
+	if port := os.Getenv("PORT"); port != "" {
+		return ":" + port
+	}
+	return ":8085"
 }
 
 func stringFromEnv(key, fallback string) string {

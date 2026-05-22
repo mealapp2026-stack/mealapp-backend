@@ -19,6 +19,34 @@ go run ./cmd/api
 
 The API listens on `http://localhost:8080` by default.
 
+## Deploy to Render
+
+The API entrypoint is in `cmd/api`, so the Render build command must include that package path:
+
+```bash
+go build -tags netgo -ldflags '-s -w' -o app ./cmd/api
+```
+
+Use this start command:
+
+```bash
+./app
+```
+
+Required Render environment variables:
+
+```text
+APP_ENV=production
+MONGO_URI=<your MongoDB Atlas connection string>
+MONGO_DATABASE=mealapp
+JWT_SECRET=<a long random secret>
+TOKEN_TTL_HOURS=168
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.2
+```
+
+Render provides `PORT` automatically, and the backend will listen on that port when `HTTP_ADDR` is not set.
+
 ## Example requests
 
 Register:

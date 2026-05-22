@@ -1,3 +1,4 @@
 .env
+app
 bin/
 coverage.out

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: mealapp-backend
+    runtime: go
+    plan: free
+    buildCommand: go build -tags netgo -ldflags '-s -w' -o app ./cmd/api
+    startCommand: ./app
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DATABASE
+        value: mealapp
+      - key: JWT_SECRET
+        sync: false
+      - key: TOKEN_TTL_HOURS
+        value: 168
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5.2
