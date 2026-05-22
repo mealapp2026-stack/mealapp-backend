@@ -21,7 +21,13 @@ The API listens on `http://localhost:8080` by default.
 
 ## Deploy to Render
 
-The API entrypoint is in `cmd/api`, so the Render build command must include that package path:
+The repo includes a root `main.go`, so Render's default root build works:
+
+```bash
+go build -tags netgo -ldflags '-s -w' -o app
+```
+
+This package-specific build also works:
 
 ```bash
 go build -tags netgo -ldflags '-s -w' -o app ./cmd/api

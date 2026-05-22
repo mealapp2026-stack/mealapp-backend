@@ -3,7 +3,7 @@ services:
     name: mealapp-backend
     runtime: go
     plan: free
-    buildCommand: go build -tags netgo -ldflags '-s -w' -o app ./cmd/api
+    buildCommand: go build -tags netgo -ldflags '-s -w' -o app
     startCommand: ./app
     envVars:
       - key: APP_ENV

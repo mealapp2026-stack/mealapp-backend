@@ -1,4 +1,5 @@
 .env
-app
+/app
+/app-cmd
 bin/
 coverage.out
