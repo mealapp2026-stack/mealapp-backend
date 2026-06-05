@@ -188,6 +188,49 @@ func TestPlannerAlternativeExcludesCurrentMeal(t *testing.T) {
 	}
 }
 
+func TestPlannerHasAtLeastFiveBuiltInOptionsPerSlot(t *testing.T) {
+	planner := New(&memoryLibrary{items: store.DefaultMealLibraryItems()}, nil)
+	profile := &models.HealthProfile{Diet: "No restriction"}
+
+	for _, testCase := range []struct {
+		slot    models.MealSlot
+		cuisine models.Cuisine
+	}{
+		{models.MealSlotBreakfast, models.CuisineFrench},
+		{models.MealSlotLunch, models.CuisineAfrican},
+		{models.MealSlotDinner, models.CuisineChinese},
+	} {
+		seen := make([]string, 0, 5)
+		current := ""
+		for attempt := 1; attempt <= 5; attempt++ {
+			meal, err := planner.Alternative(
+				context.Background(),
+				testCase.slot,
+				testCase.cuisine,
+				profile,
+				seen,
+				false,
+				string(testCase.slot),
+				attempt,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if meal.Slot != testCase.slot {
+				t.Fatalf("expected %s option, got %+v", testCase.slot, meal)
+			}
+			if isExcludedName(meal.Name, seen) {
+				t.Fatalf("expected new %s option, got repeated meal %q after %v", testCase.slot, meal.Name, seen)
+			}
+			current = meal.Name
+			seen = append(seen, current)
+		}
+		if len(cleanNames(seen)) < 5 {
+			t.Fatalf("expected at least 5 %s options, got %v", testCase.slot, seen)
+		}
+	}
+}
+
 func TestPlannerAlternativeCanForceAI(t *testing.T) {
 	library := memoryLibrary{items: store.DefaultMealLibraryItems()}
 	ai := fakeAI{

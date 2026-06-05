@@ -82,10 +82,18 @@ func (p Planner) pick(ctx context.Context, day string, slot models.MealSlot, pre
 		return models.Meal{}, err
 	}
 
-	candidates := filterCandidates(libraryMeals, preferredCuisine, profile, true)
+	candidates := preferredCandidates(libraryMeals, preferredCuisine, profile, true)
 	candidates = excludeMeals(candidates, excludeNames)
 	if len(candidates) == 0 {
-		candidates = filterCandidates(libraryMeals, preferredCuisine, profile, false)
+		candidates = safeCandidates(libraryMeals, profile, true)
+		candidates = excludeMeals(candidates, excludeNames)
+	}
+	if len(candidates) == 0 {
+		candidates = preferredCandidates(libraryMeals, preferredCuisine, profile, false)
+		candidates = excludeMeals(candidates, excludeNames)
+	}
+	if len(candidates) == 0 {
+		candidates = safeCandidates(libraryMeals, profile, false)
 		candidates = excludeMeals(candidates, excludeNames)
 	}
 	if len(candidates) > 0 {
@@ -119,9 +127,15 @@ func (p Planner) pickAlternative(ctx context.Context, day string, slot models.Me
 		return models.Meal{}, err
 	}
 
-	candidates := excludeMeals(filterCandidates(libraryMeals, preferredCuisine, profile, true), excludeNames)
+	candidates := excludeMeals(preferredCandidates(libraryMeals, preferredCuisine, profile, true), excludeNames)
 	if len(candidates) == 0 {
-		candidates = excludeMeals(filterCandidates(libraryMeals, preferredCuisine, profile, false), excludeNames)
+		candidates = excludeMeals(safeCandidates(libraryMeals, profile, true), excludeNames)
+	}
+	if len(candidates) == 0 {
+		candidates = excludeMeals(preferredCandidates(libraryMeals, preferredCuisine, profile, false), excludeNames)
+	}
+	if len(candidates) == 0 {
+		candidates = excludeMeals(safeCandidates(libraryMeals, profile, false), excludeNames)
 	}
 	if len(candidates) > 0 {
 		return bestCandidate(day, candidates, preferredCuisine, profile).Meal, nil
@@ -219,7 +233,18 @@ func isExcludedName(name string, exclusions []string) bool {
 	return false
 }
 
-func filterCandidates(items []models.MealLibraryItem, preferredCuisine models.Cuisine, profile *models.HealthProfile, strictDislikes bool) []models.MealLibraryItem {
+func preferredCandidates(items []models.MealLibraryItem, preferredCuisine models.Cuisine, profile *models.HealthProfile, strictDislikes bool) []models.MealLibraryItem {
+	candidates := safeCandidates(items, profile, strictDislikes)
+	filtered := make([]models.MealLibraryItem, 0, len(candidates))
+	for _, item := range candidates {
+		if item.Meal.Cuisine == preferredCuisine {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func safeCandidates(items []models.MealLibraryItem, profile *models.HealthProfile, strictDislikes bool) []models.MealLibraryItem {
 	candidates := make([]models.MealLibraryItem, 0)
 	for _, item := range items {
 		if hasBlockedAllergen(item, profile) {
@@ -231,9 +256,7 @@ func filterCandidates(items []models.MealLibraryItem, preferredCuisine models.Cu
 		if !supportsDiet(item, profile) {
 			continue
 		}
-		if item.Meal.Cuisine == preferredCuisine || len(candidates) == 0 {
-			candidates = append(candidates, item)
-		}
+		candidates = append(candidates, item)
 	}
 	return candidates
 }
