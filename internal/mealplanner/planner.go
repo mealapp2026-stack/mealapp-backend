@@ -104,9 +104,6 @@ func (p Planner) pick(ctx context.Context, day string, slot models.MealSlot, pre
 			_ = p.library.InsertGenerated(ctx, generated)
 			return generated.Meal, nil
 		}
-		if err != nil {
-			return models.Meal{}, err
-		}
 	}
 
 	return fallbackMeal(slot, preferredCuisine).Meal, nil

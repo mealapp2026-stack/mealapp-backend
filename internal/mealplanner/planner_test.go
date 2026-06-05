@@ -138,6 +138,32 @@ func TestPlannerUsesAIWhenLibraryHasNoSafeMeal(t *testing.T) {
 	}
 }
 
+func TestPlannerFallsBackWhenAIPlanGenerationFails(t *testing.T) {
+	planner := New(&memoryLibrary{items: nil}, fakeAI{err: errors.New("ai unavailable")})
+
+	plan, err := planner.ForDate(
+		context.Background(),
+		time.Date(2026, 5, 11, 0, 0, 0, 0, time.UTC),
+		models.MealPreferences{
+			Breakfast: models.CuisineIndian,
+			Lunch:     models.CuisineAfrican,
+			Dinner:    models.CuisineChinese,
+		},
+		&models.HealthProfile{Diet: "Vegetarian"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Meals) != 3 {
+		t.Fatalf("expected 3 fallback meals, got %d", len(plan.Meals))
+	}
+	for _, meal := range plan.Meals {
+		if meal.Name != "Balanced chef bowl" {
+			t.Fatalf("expected fallback meal, got %+v", meal)
+		}
+	}
+}
+
 func TestPlannerAlternativeExcludesCurrentMeal(t *testing.T) {
 	planner := New(&memoryLibrary{items: store.DefaultMealLibraryItems()}, nil)
 
@@ -250,9 +276,13 @@ func (l *memoryLibrary) InsertGenerated(_ context.Context, item models.MealLibra
 
 type fakeAI struct {
 	item models.MealLibraryItem
+	err  error
 }
 
 func (f fakeAI) GenerateMeal(_ context.Context, request AIRequest) (models.MealLibraryItem, error) {
+	if f.err != nil {
+		return models.MealLibraryItem{}, f.err
+	}
 	item := f.item
 	item.Meal.Slot = request.Slot
 	item.Meal.Cuisine = request.PreferredCuisine
