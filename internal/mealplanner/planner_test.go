@@ -200,33 +200,22 @@ func TestPlannerHasAtLeastFiveBuiltInOptionsPerSlot(t *testing.T) {
 		{models.MealSlotLunch, models.CuisineAfrican},
 		{models.MealSlotDinner, models.CuisineChinese},
 	} {
-		seen := make([]string, 0, 5)
-		current := ""
-		for attempt := 1; attempt <= 5; attempt++ {
-			meal, err := planner.Alternative(
-				context.Background(),
-				testCase.slot,
-				testCase.cuisine,
-				profile,
-				seen,
-				false,
-				string(testCase.slot),
-				attempt,
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
+		options, err := planner.Options(context.Background(), testCase.slot, testCase.cuisine, profile, nil, 5)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(options) < 5 {
+			t.Fatalf("expected at least 5 %s options, got %v", testCase.slot, options)
+		}
+		seen := make([]string, 0, len(options))
+		for _, meal := range options {
 			if meal.Slot != testCase.slot {
 				t.Fatalf("expected %s option, got %+v", testCase.slot, meal)
 			}
 			if isExcludedName(meal.Name, seen) {
 				t.Fatalf("expected new %s option, got repeated meal %q after %v", testCase.slot, meal.Name, seen)
 			}
-			current = meal.Name
-			seen = append(seen, current)
-		}
-		if len(cleanNames(seen)) < 5 {
-			t.Fatalf("expected at least 5 %s options, got %v", testCase.slot, seen)
+			seen = append(seen, meal.Name)
 		}
 	}
 }

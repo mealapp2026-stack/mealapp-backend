@@ -53,6 +53,7 @@ func (s *Server) routes() {
 	s.mux.Handle("PUT /api/v1/me/profile", s.requireAuth(http.HandlerFunc(s.updateProfile)))
 	s.mux.Handle("GET /api/v1/meal-plans/today", s.requireAuth(http.HandlerFunc(s.todayMealPlan)))
 	s.mux.Handle("POST /api/v1/meal-plans/alternatives", s.requireAuth(http.HandlerFunc(s.alternativeMeal)))
+	s.mux.Handle("POST /api/v1/meal-plans/options", s.requireAuth(http.HandlerFunc(s.mealOptions)))
 	s.mux.Handle("PUT /api/v1/meal-plans/preferences", s.requireAuth(http.HandlerFunc(s.updatePreferences)))
 }
 
@@ -214,6 +215,44 @@ func (s *Server) alternativeMeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]models.Meal{"meal": meal})
+}
+
+type mealOptionsRequest struct {
+	Slot             models.MealSlot `json:"slot"`
+	ExcludeMealNames []string        `json:"excludeMealNames"`
+	Limit            int             `json:"limit"`
+}
+
+func (s *Server) mealOptions(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUser(w, r)
+	if !ok {
+		return
+	}
+
+	var request mealOptionsRequest
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	if !validMealSlot(request.Slot) {
+		writeError(w, http.StatusBadRequest, "invalid meal slot")
+		return
+	}
+
+	meals, err := s.planner.Options(
+		r.Context(),
+		request.Slot,
+		preferredCuisineForSlot(user.Preferences, request.Slot),
+		user.Profile,
+		cleanStringSlice(request.ExcludeMealNames),
+		request.Limit,
+	)
+	if err != nil {
+		log.Printf("meal options failed: slot=%s exclusions=%v err=%v", request.Slot, request.ExcludeMealNames, err)
+		writeError(w, http.StatusInternalServerError, "meal options failed: "+err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string][]models.Meal{"meals": meals})
 }
 
 func alternativeExclusions(request alternativeMealRequest) []string {

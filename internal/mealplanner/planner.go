@@ -54,6 +54,37 @@ func (p Planner) Alternative(ctx context.Context, slot models.MealSlot, preferre
 	return p.pickAlternative(ctx, time.Now().UTC().Format("2006-01-02"), slot, preferredCuisine, profile, excludeNames, forceAI, requestID, attempt)
 }
 
+func (p Planner) Options(ctx context.Context, slot models.MealSlot, preferredCuisine models.Cuisine, profile *models.HealthProfile, excludeNames []string, limit int) ([]models.Meal, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	day := time.Now().UTC().Format("2006-01-02")
+	libraryMeals, err := p.library.FindBySlot(ctx, slot)
+	if err != nil {
+		return nil, err
+	}
+
+	candidates := uniqueCandidateOrder(
+		preferredCandidates(libraryMeals, preferredCuisine, profile, true),
+		safeCandidates(libraryMeals, profile, true),
+		preferredCandidates(libraryMeals, preferredCuisine, profile, false),
+		safeCandidates(libraryMeals, profile, false),
+	)
+	candidates = excludeMeals(candidates, excludeNames)
+	if len(candidates) == 0 {
+		return []models.Meal{fallbackMeal(slot, preferredCuisine).Meal}, nil
+	}
+
+	meals := make([]models.Meal, 0, min(limit, len(candidates)))
+	remaining := append([]models.MealLibraryItem{}, candidates...)
+	for len(meals) < limit && len(remaining) > 0 {
+		next := bestCandidate(day, remaining, preferredCuisine, profile).Meal
+		meals = append(meals, next)
+		remaining = excludeMeals(remaining, []string{next.Name})
+	}
+	return meals, nil
+}
+
 func (p Planner) ForDate(ctx context.Context, date time.Time, preferences models.MealPreferences, profile *models.HealthProfile) (models.DailyMealPlan, error) {
 	day := date.UTC().Format("2006-01-02")
 	meals := make([]models.Meal, 0, 3)
@@ -221,6 +252,25 @@ func cleanNames(names []string) []string {
 		cleaned = append(cleaned, name)
 	}
 	return cleaned
+}
+
+func uniqueCandidateOrder(groups ...[]models.MealLibraryItem) []models.MealLibraryItem {
+	seen := make(map[string]struct{})
+	candidates := make([]models.MealLibraryItem, 0)
+	for _, group := range groups {
+		for _, item := range group {
+			key := normalized(item.Meal.Name)
+			if key == "" {
+				continue
+			}
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			candidates = append(candidates, item)
+		}
+	}
+	return candidates
 }
 
 func isExcludedName(name string, exclusions []string) bool {
